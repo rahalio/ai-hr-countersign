@@ -1,0 +1,1586 @@
+openapi: 3.0.3
+info:
+  title: Countersign
+  version: 0.1.0
+  description: >-
+    Decision-level exposure and supervision register for licensed professions. Countersign
+    records which professional judgments a machine may produce, who may countersign each
+    one, whether that countersignature is meaningful or nominal, how much training-grade
+    work is reserved for supervised trainees, and what liability and capability exposure
+    the resulting mix creates.
+  x-product-slug: ai-hr-countersign
+  x-source: ai-in-hr/Accenture-How-Will-AI-Impact-The-Workforce-Transcript/
+servers:
+  - url: https://api.example.com
+tags:
+  - name: Professions
+    description: Professions, decision types, scope and supervision rules
+  - name: Exposure
+    description: Machine producibility and attributability assessment per decision type
+  - name: Countersignature
+    description: Decision routing, countersignature capture, amendments and release
+  - name: Supervision
+    description: Supervision quality analytics, re-review sampling and capacity forecasting
+  - name: TrainingPipeline
+    description: Reserved training-grade quotas and trainee progression
+  - name: Capability
+    description: Licensed hour composition, capability gaps and curriculum feedback
+  - name: Liability
+    description: Indemnity exposure, suspension and fallback capacity
+  - name: Attestation
+    description: Regulator and professional body attestations
+  - name: Reporting
+    description: Aggregate supervision, throughput and exposure reporting
+paths:
+  /v1/professions:
+    get:
+      operationId: listProfessions
+      tags: [Professions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Professions page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeProfession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createProfession
+      tags: [Professions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionCreate"
+      responses:
+        "201":
+          description: Profession registered with its regulator and standards reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeProfession"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/decision-types:
+    get:
+      operationId: listDecisionTypes
+      tags: [Professions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: professionId
+          in: query
+          schema:
+            type: string
+        - name: releaseState
+          in: query
+          schema:
+            type: string
+            enum: [human_only, automated_release_permitted, suspended]
+      responses:
+        "200":
+          description: Decision types page with licensure and supervision rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeDecisionType"
+    post:
+      operationId: registerDecisionType
+      tags: [Professions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionTypeCreate"
+      responses:
+        "201":
+          description: Decision type registered in human-only state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDecisionType"
+  /v1/decision-types/{decisionTypeId}/countersign-policy:
+    parameters:
+      - $ref: "#/components/parameters/DecisionTypeId"
+    put:
+      operationId: setCountersignPolicy
+      tags: [Professions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CountersignPolicy"
+      responses:
+        "200":
+          description: Countersignature policy and thresholds set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCountersignPolicy"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/decision-types/{decisionTypeId}/exposure-assessment:
+    parameters:
+      - $ref: "#/components/parameters/DecisionTypeId"
+    post:
+      operationId: recordExposureAssessment
+      tags: [Exposure]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExposureAssessmentCreate"
+      responses:
+        "201":
+          description: Evidenced producibility and attributability assessment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeExposureAssessment"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+    get:
+      operationId: getExposureAssessment
+      tags: [Exposure]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current assessment with review cadence and history pointer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeExposureAssessment"
+  /v1/decisions:
+    post:
+      operationId: createDecisionInstance
+      tags: [Countersignature]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionInstanceCreate"
+      responses:
+        "201":
+          description: Decision instance created and routed to an eligible signatory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDecisionInstance"
+        "409":
+          description: Automated release for this decision type is suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    get:
+      operationId: listDecisionInstances
+      tags: [Countersignature]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: decisionTypeId
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [awaiting_countersign, countersigned, amended, refused, released, withdrawn]
+      responses:
+        "200":
+          description: Decision instances page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeDecisionInstance"
+  /v1/decisions/{decisionId}/countersignature:
+    parameters:
+      - $ref: "#/components/parameters/DecisionId"
+    post:
+      operationId: recordCountersignature
+      tags: [Countersignature]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CountersignEventCreate"
+      responses:
+        "201":
+          description: Countersignature recorded with dwell time and material reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCountersignEvent"
+        "403":
+          description: Signatory is not licensed or in scope for this decision type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "429":
+          description: Signatory countersignature load limit reached for this period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/decisions/{decisionId}/amendment:
+    parameters:
+      - $ref: "#/components/parameters/DecisionId"
+    post:
+      operationId: recordAmendment
+      tags: [Countersignature]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AmendmentRecordCreate"
+      responses:
+        "201":
+          description: Amendment or refusal recorded as model quality feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeAmendmentRecord"
+  /v1/decisions/{decisionId}/disclosure:
+    parameters:
+      - $ref: "#/components/parameters/DecisionId"
+    post:
+      operationId: recordDisclosure
+      tags: [Countersignature]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisclosureRecord"
+      responses:
+        "201":
+          description: Disclosure to the patient or client recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeDisclosureRecord"
+  /v1/re-review-samples:
+    post:
+      operationId: requestReReviewSample
+      tags: [Supervision]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReReviewSampleRequest"
+      responses:
+        "201":
+          description: Independent re-review sample drawn and assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeReReviewSample"
+  /v1/re-review-samples/{sampleId}/outcome:
+    parameters:
+      - $ref: "#/components/parameters/SampleId"
+    post:
+      operationId: submitReReviewOutcome
+      tags: [Supervision]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [concordance]
+              properties:
+                concordance:
+                  type: string
+                  enum: [concordant, minor_discordance, material_discordance]
+                narrative:
+                  type: string
+                harmPotential:
+                  type: string
+                  enum: [none, low, moderate, severe]
+      responses:
+        "200":
+          description: Concordance recorded and fed into supervision quality analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeReReviewSample"
+  /v1/supervision-quality:
+    get:
+      operationId: getSupervisionQuality
+      tags: [Supervision]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: decisionTypeId
+          in: query
+          schema:
+            type: string
+        - name: serviceId
+          in: query
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            example: 2026-Q3
+      responses:
+        "200":
+          description: Dwell distribution, override rate and nominal supervision flags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSupervisionQuality"
+  /v1/supervision-capacity-forecast:
+    get:
+      operationId: getSupervisionCapacityForecast
+      tags: [Supervision]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: serviceId
+          in: query
+          schema:
+            type: string
+        - name: rosterPeriod
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Forecast countersignature load against rostered supervisor capacity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSupervisionCapacityForecast"
+  /v1/training-quotas:
+    get:
+      operationId: listTrainingQuotas
+      tags: [TrainingPipeline]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [on_track, at_risk, breached]
+      responses:
+        "200":
+          description: Training quotas page with consumption against reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEnvelopeTrainingQuota"
+    post:
+      operationId: setTrainingQuota
+      tags: [TrainingPipeline]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrainingQuotaCreate"
+      responses:
+        "201":
+          description: Quota reserved and automation throttling enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeTrainingQuota"
+  /v1/capability-plan:
+    get:
+      operationId: getCapabilityPlan
+      tags: [Capability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: professionId
+          in: query
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Licensed hour composition by producibility class with gaps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCapabilityPlan"
+  /v1/curriculum-gaps:
+    post:
+      operationId: publishCurriculumGap
+      tags: [Capability]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurriculumGap"
+      responses:
+        "201":
+          description: Gap published to training programme and education partners
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeCurriculumGap"
+  /v1/decision-types/{decisionTypeId}/suspension:
+    parameters:
+      - $ref: "#/components/parameters/DecisionTypeId"
+    post:
+      operationId: suspendAutomatedRelease
+      tags: [Liability]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspensionEventCreate"
+      responses:
+        "202":
+          description: Automated release suspended and human fallback activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeSuspensionEvent"
+  /v1/indemnity-exposure:
+    get:
+      operationId: getIndemnityExposure
+      tags: [Liability]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: professionId
+          in: query
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Exposure by decision type and machine assistance level
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeIndemnityExposure"
+  /v1/attestations:
+    post:
+      operationId: issueRegulatorAttestation
+      tags: [Attestation]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegulatorAttestationCreate"
+      responses:
+        "201":
+          description: Attestation issued from supervision and release evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeRegulatorAttestation"
+  /v1/reports/throughput-and-quality:
+    get:
+      operationId: getThroughputAndQualityReport
+      tags: [Reporting]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: professionId
+          in: query
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Supervised throughput against concordance and exposure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataEnvelopeThroughputQualityReport"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    DecisionTypeId:
+      name: decisionTypeId
+      in: path
+      required: true
+      schema:
+        type: string
+    DecisionId:
+      name: decisionId
+      in: path
+      required: true
+      schema:
+        type: string
+    SampleId:
+      name: sampleId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnprocessableEntity:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [requestId, timestamp]
+      properties:
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: GBP
+    Profession:
+      type: object
+      required: [id, name, regulator, jurisdiction]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Diagnostic radiology
+        regulator:
+          type: string
+        jurisdiction:
+          type: string
+        standardsReference:
+          type: string
+        revalidationCycleMonths:
+          type: integer
+        licensedHeadcount:
+          type: integer
+    ProfessionCreate:
+      type: object
+      required: [name, regulator, jurisdiction]
+      properties:
+        name:
+          type: string
+        regulator:
+          type: string
+        jurisdiction:
+          type: string
+        standardsReference:
+          type: string
+        revalidationCycleMonths:
+          type: integer
+    ScopeRule:
+      type: object
+      required: [permittedSignatoryGrades]
+      properties:
+        permittedSignatoryGrades:
+          type: array
+          items:
+            type: string
+        delegationPermitted:
+          type: boolean
+        conditions:
+          type: string
+        statuteOrStandardReference:
+          type: string
+    SupervisionRule:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [direct, same_shift_available, remote_available, retrospective_review_only]
+        maxSuperviseesPerSupervisor:
+          type: integer
+        minimumReviewMinutes:
+          type: number
+          format: float
+        standardReference:
+          type: string
+    DecisionType:
+      type: object
+      required: [id, professionId, name, releaseState, liabilityOwner]
+      properties:
+        id:
+          type: string
+        professionId:
+          type: string
+        name:
+          type: string
+          example: Plain film chest report
+        annualVolume:
+          type: integer
+        releaseState:
+          type: string
+          enum: [human_only, automated_release_permitted, suspended]
+        liabilityOwner:
+          type: string
+          enum: [individual_signatory, employing_organisation, shared]
+        scopeRule:
+          $ref: "#/components/schemas/ScopeRule"
+        supervisionRule:
+          $ref: "#/components/schemas/SupervisionRule"
+        disclosureRequired:
+          type: boolean
+        trainingGrade:
+          type: boolean
+          description: Whether this decision type is part of the qualification pathway
+    DecisionTypeCreate:
+      type: object
+      required: [professionId, name, liabilityOwner]
+      properties:
+        professionId:
+          type: string
+        name:
+          type: string
+        annualVolume:
+          type: integer
+        liabilityOwner:
+          type: string
+          enum: [individual_signatory, employing_organisation, shared]
+        scopeRule:
+          $ref: "#/components/schemas/ScopeRule"
+        supervisionRule:
+          $ref: "#/components/schemas/SupervisionRule"
+        disclosureRequired:
+          type: boolean
+        trainingGrade:
+          type: boolean
+    ExposureAssessment:
+      type: object
+      required: [decisionTypeId, producibility, attributability, assessedOn, evidence]
+      properties:
+        decisionTypeId:
+          type: string
+        producibility:
+          type: string
+          enum: [not_producible, partially_producible, substantially_producible, fully_producible]
+        producibilityConfidence:
+          type: number
+          format: float
+        attributability:
+          type: string
+          enum: [human_signature_mandatory, human_countersignature_sufficient, machine_attributable_with_disclosure]
+        assessedOn:
+          type: string
+          format: date
+        assessedBy:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum: [internal_validation, published_study, vendor_claim, regulator_guidance, peer_consensus]
+              reference:
+                type: string
+              strength:
+                type: string
+                enum: [strong, moderate, weak]
+        nextReviewOn:
+          type: string
+          format: date
+        individualUseProhibited:
+          type: boolean
+          default: true
+          description: Assessment may never be applied to an individual professional
+    ExposureAssessmentCreate:
+      type: object
+      required: [producibility, attributability, evidence]
+      properties:
+        producibility:
+          type: string
+          enum: [not_producible, partially_producible, substantially_producible, fully_producible]
+        producibilityConfidence:
+          type: number
+          format: float
+        attributability:
+          type: string
+          enum: [human_signature_mandatory, human_countersignature_sufficient, machine_attributable_with_disclosure]
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+              reference:
+                type: string
+              strength:
+                type: string
+        nextReviewOn:
+          type: string
+          format: date
+    CountersignPolicy:
+      type: object
+      required: [decisionTypeId, materialToReview, minimumDwellSeconds]
+      properties:
+        decisionTypeId:
+          type: string
+        materialToReview:
+          type: array
+          items:
+            type: string
+            example: source_images
+        minimumDwellSeconds:
+          type: integer
+        maxCountersignsPerSessionHour:
+          type: integer
+        reReviewSampleRatePercent:
+          type: number
+          format: float
+        nominalSupervisionDwellFloorSeconds:
+          type: integer
+        suspensionThresholds:
+          type: object
+          properties:
+            materialDiscordanceRatePercent:
+              type: number
+              format: float
+            nominalSupervisionSharePercent:
+              type: number
+              format: float
+    ModelContribution:
+      type: object
+      required: [modelName, modelVersion, contributionType]
+      properties:
+        modelName:
+          type: string
+        modelVersion:
+          type: string
+        contributionType:
+          type: string
+          enum: [full_draft, ranked_options, flag_only, measurement_only]
+        confidence:
+          type: number
+          format: float
+        uncertaintyNotes:
+          type: string
+        deviceClassification:
+          type: string
+          description: Regulatory device class where the tool is a regulated medical device
+    DecisionInstance:
+      type: object
+      required: [id, decisionTypeId, state, createdAt]
+      properties:
+        id:
+          type: string
+        decisionTypeId:
+          type: string
+        subjectRef:
+          type: string
+          description: Pseudonymous patient or client reference, content stays in system of record
+        state:
+          type: string
+          enum: [awaiting_countersign, countersigned, amended, refused, released, withdrawn]
+        createdAt:
+          type: string
+          format: date-time
+        modelContribution:
+          $ref: "#/components/schemas/ModelContribution"
+        guidelineVersion:
+          type: string
+        routedToSignatoryRef:
+          type: string
+        trainingGradeReservedFor:
+          type: string
+          description: Trainee reference where the instance is reserved under quota
+        releasedAt:
+          type: string
+          format: date-time
+    DecisionInstanceCreate:
+      type: object
+      required: [decisionTypeId, subjectRef]
+      properties:
+        decisionTypeId:
+          type: string
+        subjectRef:
+          type: string
+        modelContribution:
+          $ref: "#/components/schemas/ModelContribution"
+        guidelineVersion:
+          type: string
+        urgency:
+          type: string
+          enum: [routine, urgent, immediate]
+    CountersignEvent:
+      type: object
+      required: [id, decisionId, signatoryRef, signedAt, dwellSeconds, outcome]
+      properties:
+        id:
+          type: string
+        decisionId:
+          type: string
+        signatoryRef:
+          type: string
+        signatoryGrade:
+          type: string
+        licenceVerifiedAt:
+          type: string
+          format: date-time
+        signedAt:
+          type: string
+          format: date-time
+        dwellSeconds:
+          type: integer
+        materialReviewed:
+          type: array
+          items:
+            type: string
+        outcome:
+          type: string
+          enum: [adopted_unchanged, adopted_with_amendment, refused, escalated]
+        belowDwellFloor:
+          type: boolean
+    CountersignEventCreate:
+      type: object
+      required: [signatoryRef, dwellSeconds, materialReviewed, outcome]
+      properties:
+        signatoryRef:
+          type: string
+        dwellSeconds:
+          type: integer
+        materialReviewed:
+          type: array
+          items:
+            type: string
+        outcome:
+          type: string
+          enum: [adopted_unchanged, adopted_with_amendment, refused, escalated]
+    AmendmentRecord:
+      type: object
+      required: [id, decisionId, category, narrative]
+      properties:
+        id:
+          type: string
+        decisionId:
+          type: string
+        category:
+          type: string
+          enum: [factual_error, omission, wrong_guideline, overcall, undercall, tone_or_framing, scope_exceeded]
+        narrative:
+          type: string
+        materialToOutcome:
+          type: boolean
+        routedAsModelFeedback:
+          type: boolean
+    AmendmentRecordCreate:
+      type: object
+      required: [category, narrative, materialToOutcome]
+      properties:
+        category:
+          type: string
+          enum: [factual_error, omission, wrong_guideline, overcall, undercall, tone_or_framing, scope_exceeded]
+        narrative:
+          type: string
+        materialToOutcome:
+          type: boolean
+    DisclosureRecord:
+      type: object
+      required: [decisionId, disclosedTo, method]
+      properties:
+        decisionId:
+          type: string
+        disclosedTo:
+          type: string
+          enum: [patient, client, legal_representative, next_of_kin]
+        method:
+          type: string
+          enum: [verbal_documented, written_notice, consent_form, service_wide_notice]
+        disclosedAt:
+          type: string
+          format: date-time
+        wording:
+          type: string
+    ReReviewSampleRequest:
+      type: object
+      required: [decisionTypeId, samplePeriod]
+      properties:
+        decisionTypeId:
+          type: string
+        samplePeriod:
+          type: string
+        sampleSize:
+          type: integer
+        excludeSignatoryRefs:
+          type: array
+          items:
+            type: string
+          description: Ensures the reviewer is independent of the original signatory
+    ReReviewSample:
+      type: object
+      required: [id, decisionTypeId, status, drawnAt]
+      properties:
+        id:
+          type: string
+        decisionTypeId:
+          type: string
+        status:
+          type: string
+          enum: [drawn, assigned, returned, adjudicated]
+        drawnAt:
+          type: string
+          format: date-time
+        decisionIds:
+          type: array
+          items:
+            type: string
+        reviewerRef:
+          type: string
+        concordance:
+          type: string
+          enum: [concordant, minor_discordance, material_discordance]
+        harmPotential:
+          type: string
+          enum: [none, low, moderate, severe]
+    NominalSupervisionFlag:
+      type: object
+      required: [signatoryRef, decisionTypeId, period, indicator]
+      properties:
+        signatoryRef:
+          type: string
+        decisionTypeId:
+          type: string
+        period:
+          type: string
+        indicator:
+          type: string
+          enum: [dwell_below_floor, zero_amendment_rate, volume_above_capacity, discordance_with_re_review]
+        supportingValue:
+          type: number
+          format: float
+        peerReviewOpened:
+          type: boolean
+    SupervisionQuality:
+      type: object
+      required: [scope, period]
+      properties:
+        scope:
+          type: string
+        period:
+          type: string
+        countersignCount:
+          type: integer
+        medianDwellSeconds:
+          type: integer
+        shareBelowDwellFloor:
+          type: number
+          format: float
+        amendmentRate:
+          type: number
+          format: float
+        refusalRate:
+          type: number
+          format: float
+        reReviewConcordanceRate:
+          type: number
+          format: float
+        materialDiscordanceRate:
+          type: number
+          format: float
+        nominalSupervisionFlags:
+          type: array
+          items:
+            $ref: "#/components/schemas/NominalSupervisionFlag"
+    SupervisionCapacityForecast:
+      type: object
+      required: [serviceId, rosterPeriod, forecastDecisionVolume, requiredSupervisionHours]
+      properties:
+        serviceId:
+          type: string
+        rosterPeriod:
+          type: string
+        forecastDecisionVolume:
+          type: integer
+        requiredSupervisionHours:
+          type: number
+          format: double
+        rosteredSupervisionHours:
+          type: number
+          format: double
+        shortfallHours:
+          type: number
+          format: double
+        breachRisk:
+          type: string
+          enum: [none, possible, likely, certain]
+        recommendedAction:
+          type: string
+          enum: [no_action, add_supervisor_session, throttle_automation, revert_to_human_only]
+    TrainingQuota:
+      type: object
+      required: [id, decisionTypeId, traineeRef, period, reservedVolume, consumedVolume, status]
+      properties:
+        id:
+          type: string
+        decisionTypeId:
+          type: string
+        traineeRef:
+          type: string
+        programmeReference:
+          type: string
+        period:
+          type: string
+        reservedVolume:
+          type: integer
+        consumedVolume:
+          type: integer
+        status:
+          type: string
+          enum: [on_track, at_risk, breached]
+        automationThrottleActive:
+          type: boolean
+    TrainingQuotaCreate:
+      type: object
+      required: [decisionTypeId, traineeRef, period, reservedVolume]
+      properties:
+        decisionTypeId:
+          type: string
+        traineeRef:
+          type: string
+        programmeReference:
+          type: string
+        period:
+          type: string
+        reservedVolume:
+          type: integer
+    CompetenceProfile:
+      type: object
+      required: [signatoryRef, professionId]
+      properties:
+        signatoryRef:
+          type: string
+        professionId:
+          type: string
+        grade:
+          type: string
+        licenceStatus:
+          type: string
+          enum: [licensed, conditional, suspended, lapsed]
+        scopeCodes:
+          type: array
+          items:
+            type: string
+        revalidationDueOn:
+          type: string
+          format: date
+    CapabilityPlan:
+      type: object
+      required: [professionId, period, hourComposition]
+      properties:
+        professionId:
+          type: string
+        period:
+          type: string
+        hourComposition:
+          type: object
+          properties:
+            notProducibleShare:
+              type: number
+              format: float
+            partiallyProducibleShare:
+              type: number
+              format: float
+            substantiallyProducibleShare:
+              type: number
+              format: float
+            countersignatureShare:
+              type: number
+              format: float
+        targetNotProducibleShare:
+          type: number
+          format: float
+        capabilityGaps:
+          type: array
+          items:
+            type: object
+            properties:
+              capability:
+                type: string
+                example: novel_problem_framing
+              currentCoverage:
+                type: number
+                format: float
+              requiredCoverage:
+                type: number
+                format: float
+    CurriculumGap:
+      type: object
+      required: [professionId, capability, gapStatement, sharedWith]
+      properties:
+        id:
+          type: string
+        professionId:
+          type: string
+        capability:
+          type: string
+        gapStatement:
+          type: string
+        evidenceDecisionTypeIds:
+          type: array
+          items:
+            type: string
+        sharedWith:
+          type: array
+          items:
+            type: string
+            example: professional_body
+        publishedOn:
+          type: string
+          format: date
+    SuspensionEventCreate:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [discordance_threshold_breached, nominal_supervision_threshold_breached, incident, regulator_direction, model_withdrawn]
+        narrative:
+          type: string
+        fallbackCapacityConfirmed:
+          type: boolean
+    SuspensionEvent:
+      type: object
+      required: [id, decisionTypeId, reason, suspendedAt, fallbackActive]
+      properties:
+        id:
+          type: string
+        decisionTypeId:
+          type: string
+        reason:
+          type: string
+        suspendedAt:
+          type: string
+          format: date-time
+        fallbackActive:
+          type: boolean
+        fallbackCapacityHours:
+          type: number
+          format: double
+        reinstatedAt:
+          type: string
+          format: date-time
+        reinstatementConditions:
+          type: string
+    IndemnityExposure:
+      type: object
+      required: [professionId, period, byDecisionType]
+      properties:
+        professionId:
+          type: string
+        period:
+          type: string
+        byDecisionType:
+          type: array
+          items:
+            type: object
+            properties:
+              decisionTypeId:
+                type: string
+              machineAssistanceLevel:
+                type: string
+                enum: [none, assisted, substantially_machine_produced]
+              decisionVolume:
+                type: integer
+              claimsOpened:
+                type: integer
+              complaintsOpened:
+                type: integer
+              estimatedExposure:
+                $ref: "#/components/schemas/Money"
+        controlEvidenceSummary:
+          type: string
+    RegulatorAttestationCreate:
+      type: object
+      required: [professionId, regulator, period, statements]
+      properties:
+        professionId:
+          type: string
+        regulator:
+          type: string
+        period:
+          type: string
+        statements:
+          type: array
+          items:
+            type: string
+        signedByRef:
+          type: string
+    RegulatorAttestation:
+      type: object
+      required: [id, professionId, regulator, period, issuedAt]
+      properties:
+        id:
+          type: string
+        professionId:
+          type: string
+        regulator:
+          type: string
+        period:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        statements:
+          type: array
+          items:
+            type: string
+        supervisionEvidenceRef:
+          type: string
+        signedByRef:
+          type: string
+    ThroughputQualityReport:
+      type: object
+      required: [professionId, period]
+      properties:
+        professionId:
+          type: string
+        period:
+          type: string
+        decisionsReleased:
+          type: integer
+        decisionsPerLicensedFte:
+          type: number
+          format: float
+        reReviewConcordanceRate:
+          type: number
+          format: float
+        materialDiscordanceRate:
+          type: number
+          format: float
+        notProducibleHourShare:
+          type: number
+          format: float
+        trainingQuotaBreaches:
+          type: integer
+        suspensionsTriggered:
+          type: integer
+        claimsPerThousandDecisions:
+          type: number
+          format: float
+    DataEnvelopeProfession:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Profession"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDecisionType:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DecisionType"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCountersignPolicy:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CountersignPolicy"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeExposureAssessment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ExposureAssessment"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDecisionInstance:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DecisionInstance"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCountersignEvent:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CountersignEvent"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeAmendmentRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AmendmentRecord"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeDisclosureRecord:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DisclosureRecord"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeReReviewSample:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ReReviewSample"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeSupervisionQuality:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SupervisionQuality"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeSupervisionCapacityForecast:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SupervisionCapacityForecast"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeTrainingQuota:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/TrainingQuota"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCapabilityPlan:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CapabilityPlan"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeCurriculumGap:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CurriculumGap"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeSuspensionEvent:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SuspensionEvent"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeIndemnityExposure:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/IndemnityExposure"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeRegulatorAttestation:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/RegulatorAttestation"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    DataEnvelopeThroughputQualityReport:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ThroughputQualityReport"
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeProfession:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Profession"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeDecisionType:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DecisionType"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeDecisionInstance:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DecisionInstance"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+    ListEnvelopeTrainingQuota:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/TrainingQuota"
+            nextCursor:
+              type: string
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
